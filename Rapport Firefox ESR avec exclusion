@@ -1,0 +1,85 @@
+Select Top 1000000 a.AssetID,
+  a.AssetName,
+  a.Domain,
+  t.AssetTypename As AssetType,
+  a.Username,
+  a.Userdomain,
+  Coalesce(o.Image, t.AssetTypeIcon10) As Icon,
+  a.IPAddress,
+  su.softwareName As Software,
+  s.softwareVersion As Version,
+  su.SoftwarePublisher As Publisher,
+  ip.IPLocation,
+  ac.Manufacturer,
+  ac.Model,
+  Coalesce(o.OSname, sccm.OsCaption, sccm.OperatingSystemNameandVersion) As OS,
+  a.Version As OSVersion,
+  Case
+    When err.ErrorText Is Not Null And err.ErrorText != '' Then
+      'Scanning Error: ' + et.ErrorMsg
+    Else ''
+  End As ScanningErrors,
+  a.Lastseen,
+  a.Lasttried
+From tblAssets As a
+  Inner Join tblAssetCustom As ac On a.AssetID = ac.AssetID
+  Inner Join tsysAssetTypes As t On t.AssetType = a.Assettype
+  Inner Join tsysIPLocations As ip On ip.LocationID = a.LocationID
+  Inner Join tblState As st On st.State = ac.State
+  Inner Join tblSoftware As s On a.AssetID = s.AssetID
+  Inner Join tblSoftwareUni As su On su.SoftID = s.softID
+  Left Join tsysOS As o On o.OScode = a.OScode
+  Left Join tblSccmAsset As sccm On a.AssetID = sccm.AssetId
+  Left Join (Select Distinct Top 1000000 err.AssetID As ID,
+      Max(err.Teller) As ErrorID
+    From tblErrors As err
+    Group By err.AssetID) As se On a.AssetID = se.ID
+  Left Join tblErrors As err On se.ErrorID = err.Teller
+  Left Join tsysasseterrortypes As et On et.Errortype = err.ErrorType
+
+Where a.IPAddress Not Like '%10...%' And
+  a.IPAddress Not Like '%10...%' And a.IPAddress Not Like '%10...%'
+  And a.IPAddress Not Like '%10...%' And su.softwareName Like '%firefox%' And
+  su.softwareName Not Like '%Mozilla Firefox (x64 fr)%' And
+  su.SoftwarePublisher Like '%mozilla%' And ac.Manufacturer Not Like
+  '%VMware, Inc.%' And st.StateName = 'Active' And o.OSname Not Like '%XP%' And
+   o.OSname Not Like '%Win 7%' And
+   s.softwareVersion <> '140.4.0' And
+   
+    (((Len(s.softwareVersion) -
+      Len(Replace(s.softwareVersion, '.', ''))) = 1 And
+      su.softwareName Like '%firefox%' And su.softwareName Not Like '%esr%' And
+      Try_Cast(ParseName(s.softwareVersion, 2) As bigint) < 140) Or
+    ((Len(s.softwareVersion) - Len(Replace(s.softwareVersion, '.', ''))) = 1 And
+      su.softwareName Like '%firefox%' And su.softwareName Not Like '%esr%' And
+      Try_Cast(ParseName(s.softwareVersion, 2) As bigint) = 140 And
+      Try_Cast(ParseName(s.softwareVersion, 1) As bigint) <= 4) Or
+    ((Len(s.softwareVersion) - Len(Replace(s.softwareVersion, '.', ''))) = 2 And
+      su.softwareName Like '%firefox%' And su.softwareName Not Like '%esr%' And
+      Try_Cast(ParseName(s.softwareVersion, 3) As bigint) < 140) Or
+    ((Len(s.softwareVersion) - Len(Replace(s.softwareVersion, '.', ''))) = 2 And
+      su.softwareName Like '%firefox%' And su.softwareName Not Like '%esr%' And
+      Try_Cast(ParseName(s.softwareVersion, 3) As bigint) = 140 And
+      Try_Cast(ParseName(s.softwareVersion, 2) As bigint) <= 4) Or
+    ((Len(s.softwareVersion) - Len(Replace(s.softwareVersion, '.', ''))) = 3 And
+      su.softwareName Like '%firefox%' And su.softwareName Not Like '%esr%' And
+      Try_Cast(ParseName(s.softwareVersion, 4) As bigint) < 140) Or
+    ((Len(s.softwareVersion) - Len(Replace(s.softwareVersion, '.', ''))) = 3 And
+      su.softwareName Like '%firefox%' And su.softwareName Not Like '%esr%' And
+      Try_Cast(ParseName(s.softwareVersion, 4) As bigint) = 140 And
+      Try_Cast(ParseName(s.softwareVersion, 3) As bigint) <= 4) Or
+    ((su.softwareName Like '%firefox%esr%' And Not (s.softwareVersion Like
+        '%140.4.0%' Or
+        (ParseName(s.softwareVersion, 2) = 140 And ParseName(s.softwareVersion,
+        3) = 1)) And ((Len(s.softwareVersion) - Len(Replace(s.softwareVersion,
+          '.', ''))) = 1 And Try_Cast(ParseName(s.softwareVersion,
+          2) As bigint) < 140)) Or ((Len(s.softwareVersion) -
+        Len(Replace(s.softwareVersion, '.', ''))) = 1 And
+        Try_Cast(ParseName(s.softwareVersion, 2) As bigint) = 140 And
+        Try_Cast(ParseName(s.softwareVersion, 1) As bigint) <= 4) Or
+      ((Len(s.softwareVersion) - Len(Replace(s.softwareVersion, '.', ''))) = 2
+        And Try_Cast(ParseName(s.softwareVersion, 3) As bigint) < 140)
+      Or ((Len(s.softwareVersion) - Len(Replace(s.softwareVersion, '.', ''))) =
+        2 And Try_Cast(ParseName(s.softwareVersion, 3) As bigint) = 140 And
+        Try_Cast(ParseName(s.softwareVersion, 2) As bigint) <= 4)))
+Order By a.AssetName
